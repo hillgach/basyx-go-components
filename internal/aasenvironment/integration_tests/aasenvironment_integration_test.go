@@ -81,7 +81,9 @@ func TestUploadAASX(t *testing.T) {
 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 
@@ -94,7 +96,9 @@ func TestUploadAASX(t *testing.T) {
 	aasURL := fmt.Sprintf("http://localhost:6004/shells/%s", aasIdentifier)
 	respAAS, err := http.Get(aasURL)
 	require.NoError(t, err)
-	defer respAAS.Body.Close()
+	defer func() {
+		_ = respAAS.Body.Close()
+	}()
 	assert.Equal(t, http.StatusOK, respAAS.StatusCode, "AAS should be found in AAS repository")
 
 	// Check Submodel Repository
@@ -102,6 +106,8 @@ func TestUploadAASX(t *testing.T) {
 	smURL := fmt.Sprintf("http://localhost:6003/submodels/%s", smIdentifier)
 	respSM, err := http.Get(smURL)
 	require.NoError(t, err)
-	defer respSM.Body.Close()
+	defer func() {
+		_ = respSM.Body.Close()
+	}()
 	assert.Equal(t, http.StatusOK, respSM.StatusCode, "Submodel should be found in Submodel repository")
 }

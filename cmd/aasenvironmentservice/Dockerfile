@@ -11,7 +11,7 @@ RUN apk update && apk add --no-cache git ca-certificates && update-ca-certificat
 WORKDIR /app
 
 # Copy go.mod and go.sum
-COPY go.mod go.sum ./
+COPY go.mod go.sum /app/
 
 # Download dependencies
 RUN go mod download
@@ -33,11 +33,11 @@ FROM gcr.io/distroless/static:nonroot
 WORKDIR /app
 
 # Copy runtime artifacts
-COPY --from=builder /app/aasenvironmentservice /app/aasenvironmentservice
-COPY --from=builder /app/cmd/aasenvironmentservice/config.yaml /config/config.yaml
-COPY --from=builder /app/basyxschema.sql /app/basyxschema.sql
-COPY --from=builder /app/healthprobe /bin/healthprobe
-COPY --from=builder /app/healthprobe /bin/wget
+COPY --from=builder ["/app/aasenvironmentservice", "/app/aasenvironmentservice"]
+COPY --from=builder ["/app/cmd/aasenvironmentservice/config.yaml", "/config/config.yaml"]
+COPY --from=builder ["/app/basyxschema.sql", "/app/basyxschema.sql"]
+COPY --from=builder ["/app/healthprobe", "/bin/healthprobe"]
+COPY --from=builder ["/app/healthprobe", "/bin/wget"]
 
 # Default port (can be overridden by environment)
 ENV SERVER_PORT=5007
