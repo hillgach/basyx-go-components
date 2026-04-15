@@ -136,6 +136,8 @@ The ABAC engine evaluates rules in order and either denies, allows, or allows wi
 
 Evaluation gates:
 1. Map HTTP method + route to required rights (deny if no mapping).
+   - Rights within one mapping entry are combined using logical OR (example: `PUT -> [CREATE, UPDATE]` means either right is sufficient).
+   - Multiple matching mapping entries are also OR alternatives.
 2. Check rights in rule ACLs.
 3. Check attribute requirements (CLAIM presence or GLOBAL=ANONYMOUS).
 4. Match object routes and descriptor objects.
@@ -153,11 +155,86 @@ Relevant code:
 - [internal/common/security/abac_engine_attributes.go](internal/common/security/abac_engine_attributes.go)
 - [internal/common/security/abac_engine_materialization.go](internal/common/security/abac_engine_materialization.go)
 
+## RIGHT -> Operational Verb -> HTTP method mapping
+
+```mermaid
+flowchart LR
+  subgraph RIGHTS[RIGHT]
+    direction TB
+    R_UPDATE[UPDATE]
+    R_CREATE[CREATE]
+    R_READ[READ]
+    R_VIEW[VIEW]
+    R_EXECUTE[EXECUTE]
+    R_DELETE[DELETE]
+  end
+
+  subgraph VERBS[Operational Verb]
+    direction TB
+    V_PATCH[Patch]
+    V_PUT[Put]
+    V_POST[Post]
+    V_GETALL[GetAll]
+    V_GET[Get]
+    V_INVOKE[Invoke]
+    V_DELETE[Delete]
+  end
+
+  subgraph HTTP[HTTP REST Method]
+    direction TB
+    H_PATCH[PATCH]
+    H_PUT[PUT]
+    H_POST[POST]
+    H_GET[GET]
+    H_DELETE[DELETE]
+  end
+
+  R_UPDATE --> V_PATCH
+  R_UPDATE --> V_PUT
+  R_CREATE --> V_PUT
+  R_CREATE --> V_POST
+  R_READ --> V_GETALL
+  R_READ --> V_GET
+  R_VIEW --> V_GETALL
+  R_EXECUTE --> V_INVOKE
+  R_DELETE --> V_DELETE
+
+  V_PATCH --> H_PATCH
+  V_PATCH --> H_PUT
+  V_PUT --> H_PUT
+  V_POST --> H_POST
+  V_GETALL --> H_GET
+  V_GETALL --> H_POST
+  V_GET --> H_GET
+  V_INVOKE --> H_POST
+  V_DELETE --> H_DELETE
+```
+
+Notes:
+- Multiple edges into the same HTTP method node indicate different endpoints can use the same HTTP method with different operational verb meaning.
+- For each concrete endpoint + HTTP method combination, there is exactly one mapped operational verb.
+
 ## QueryFilter propagation
 
 - QueryFilter is stored in request context after ABAC evaluation.
 - Controllers can enforce it on payloads or results.
 - Persistence helpers apply it to SQL queries and fragment projections.
+- QueryFilter carries right-scoped formulas in `FormulasByRight` (for example, separate formulas for `CREATE` and `UPDATE`).
+- `SelectPutFormulaByExistence(ctx, dataExists)` switches the active `Formula` for PUT upsert checks (create vs update).
+
+## Formula enforcement gate
+
+- `ShouldEnforceFormula(ctx)` is the single helper used by components to decide if formula-based ABAC checks must run.
+- It returns `(false, nil)` when ABAC is disabled or when no `QueryFilter` is present.
+- It returns an error when configuration is missing in context.
+- It validates the invariant `Formula != nil => len(FormulasByRight) > 0` and returns an error when violated.
+- Components must propagate helper errors as internal errors with component-specific error codes.
+
+## Runtime context requirements
+
+- Security-sensitive code paths must use context-aware methods and pass `ctx` through all checks.
+- Do not use runtime fallback logic that bypasses context-based security decisions.
+- Security-specific work should be scoped inside `if shouldEnforce { ... }` to avoid unnecessary overhead when formula checks are not required.
 
 Relevant code:
 - [internal/common/security/authorize.go](internal/common/security/authorize.go)
@@ -172,11 +249,30 @@ Relevant code:
 ## Access model structure (high level)
 
 Access rules define:
-- DEFATTRIBUTES: reusable attribute sets (CLAIM or GLOBAL).
+- DEFATTRIBUTES: reusable attribute sets (CLAIM, GLOBAL, or REFERENCE).
 - DEFOBJECTS: reusable route or descriptor object sets.
 - DEFACLS: reusable rights and attribute bindings.
 - DEFFORMULAS: reusable boolean expressions.
 - rules: ordered rules that combine ACLs, objects, and formulas.
+
+Validation invariants enforced by the current implementation:
+- Rule-level one-of:
+  - exactly one of `ACL` or `USEACL`
+  - exactly one of `FORMULA` or `USEFORMULA`
+  - exactly one of `OBJECTS` or `USEOBJECTS`
+- ACL one-of:
+  - exactly one of `ATTRIBUTES` or `USEATTRIBUTES`
+- Filter validation:
+  - `FILTER` (single) and `FILTERLIST` (multiple) are both supported
+  - each filter entry must define `FRAGMENT`
+  - each filter entry must define exactly one of `CONDITION` or `USEFORMULA`
+- Reference resolution:
+  - `USEACL`, `USEATTRIBUTES`, `USEFORMULA`, and `USEOBJECTS` are resolved during model materialization at startup
+  - unknown references fail fast (`... not found`)
+  - `USEOBJECTS` also rejects empty references and circular references
+- Parsing strictness:
+  - unknown JSON fields are rejected (`DisallowUnknownFields`)
+  - object identifiers in `OBJECTS` use the strict `ObjectItem` grammar (ROUTE / IDENTIFIABLE / REFERABLE / FRAGMENT / DESCRIPTOR forms)
 
 Example file:
 - [cmd/aasregistryservice/config/access_rules/access-rules.json](cmd/aasregistryservice/config/access_rules/access-rules.json)
@@ -186,6 +282,8 @@ Example file:
 - Security-focused tests use dedicated access rules and Keycloak configs under the service-specific security test folders.
   - Example: [internal/aasregistry/security_tests](internal/aasregistry/security_tests)
   - Example: [internal/discoveryservice/security_tests](internal/discoveryservice/security_tests)
+- Tests that intentionally run without ABAC enforcement must provide explicit config context with ABAC disabled.
+- Production/runtime code must not inject ABAC-disabled fallback config to compensate for missing context.
 
 ## Operational checklist
 
