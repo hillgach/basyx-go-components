@@ -1,5 +1,5 @@
 server:
-  port: 5007
+  port: 5004
   contextPath: ""
   host: 0.0.0.0
   strictVerification: false
@@ -20,3 +20,9 @@ oidc:
 abac:
   enabled: false
   modelPath: "config/access_rules/access-rules.json"
+
+general:
+  enableImplicitCasts: true
+  enableDescriptorDebug: false
+  discoveryIntegration: false
+  supportsSingularSupplementalSemanticId: false

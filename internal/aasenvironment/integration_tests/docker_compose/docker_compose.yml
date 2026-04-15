@@ -1,7 +1,7 @@
 services:
   db_it:
     image: postgres:18
-    container_name: postgres_db_it_env
+    container_name: postgres_db_it
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
@@ -62,7 +62,7 @@ services:
       context: ../../../..
       dockerfile: ./cmd/aasenvironmentservice/Dockerfile
     environment:
-      - SERVER_PORT=5007
+      - SERVER_PORT=5004
       - POSTGRES_HOST=db_it
       - POSTGRES_PORT=5432
       - POSTGRES_USER=admin
@@ -72,8 +72,14 @@ services:
       - POSTGRES_MAXIDLECONNECTIONS=500
       - POSTGRES_CONNMAXLIFETIMEMINUTES=5
       - SERVER_STRICTVERIFICATION=false
+      - ABAC_ENABLED=false
+      - JWS_PRIVATEKEYPATH=/app/rsa-key.pem
+    volumes:
+      - ../../../submodelrepository/integration_tests/docker_compose/rsa-key.pem:/app/rsa-key.pem:ro
     ports:
-      - "6007:5007"
+      - "6004:5004"
+    extra_hosts:
+      - "localhost:host-gateway"
     depends_on:
       db_it:
         condition: service_healthy
