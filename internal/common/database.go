@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -61,6 +62,11 @@ func InitializeDatabase(dsn string, schemaFilePath string) (*sql.DB, error) {
 	_, dbError := db.Exec(string(queryString))
 
 	if dbError != nil {
+		// Ignore duplicate key errors which can occur if multiple services attempt to create extensions simultaneously
+		if strings.Contains(dbError.Error(), "23505") || strings.Contains(dbError.Error(), "duplicate key") {
+			_, _ = fmt.Printf("Schema initialization warning (ignorable): %v\n", dbError)
+			return db, nil
+		}
 		return nil, dbError
 	}
 	return db, nil

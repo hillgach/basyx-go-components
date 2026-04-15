@@ -19,7 +19,10 @@ import (
 
 func TestMain(m *testing.M) {
 	code := testenv.RunComposeTestMain(m, testenv.ComposeTestMainOptions{
-		HealthURL: "http://localhost:6007/health",
+		HealthURL:       "http://localhost:6007/health",
+		HealthTimeout:   5 * time.Minute,
+		UpArgs:          []string{"up", "-d", "--build", "--force-recreate"},
+		PreDownBeforeUp: true,
 	})
 	os.Exit(code)
 }

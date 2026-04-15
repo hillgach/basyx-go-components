@@ -24,9 +24,12 @@ func (s *AASEnvironment) LoadEnvironment(ctx context.Context, env types.IEnviron
 		return nil
 	}
 
+	fmt.Printf("Loading environment with %d CDs, %d SMs, %d AASs\n", len(env.ConceptDescriptions()), len(env.Submodels()), len(env.AssetAdministrationShells()))
+
 	// 1. Upload Concept Descriptions
 	for _, cd := range env.ConceptDescriptions() {
 		if err := s.uploadConceptDescription(ctx, cd, ignoreDuplicates); err != nil {
+			fmt.Printf("Error uploading CD %s: %v\n", cd.ID(), err)
 			return fmt.Errorf("AASENV-LOADENV-UPLOADCD: %w", err)
 		}
 	}
@@ -34,6 +37,7 @@ func (s *AASEnvironment) LoadEnvironment(ctx context.Context, env types.IEnviron
 	// 2. Upload Submodels
 	for _, sm := range env.Submodels() {
 		if err := s.uploadSubmodel(ctx, sm, files, ignoreDuplicates); err != nil {
+			fmt.Printf("Error uploading SM %s: %v\n", sm.ID(), err)
 			return fmt.Errorf("AASENV-LOADENV-UPLOADSM: %w", err)
 		}
 	}
@@ -41,6 +45,7 @@ func (s *AASEnvironment) LoadEnvironment(ctx context.Context, env types.IEnviron
 	// 3. Upload Shells
 	for _, aas := range env.AssetAdministrationShells() {
 		if err := s.uploadAAS(ctx, aas, files, ignoreDuplicates); err != nil {
+			fmt.Printf("Error uploading AAS %s: %v\n", aas.ID(), err)
 			return fmt.Errorf("AASENV-LOADENV-UPLOADAAS: %w", err)
 		}
 	}

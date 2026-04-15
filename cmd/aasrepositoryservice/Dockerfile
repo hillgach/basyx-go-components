@@ -33,11 +33,11 @@ FROM gcr.io/distroless/static:nonroot
 WORKDIR /app
 
 # Copy runtime artifacts
-COPY --from=builder /app/aasrepositoryservice /app/aasrepositoryservice
-COPY --from=builder /app/cmd/aasrepositoryservice/config.yaml /config/config.yaml
-COPY --from=builder /app/basyxschema.sql /app/basyxschema.sql
-COPY --from=builder /app/healthprobe /bin/healthprobe
-COPY --from=builder /app/healthprobe /bin/wget
+COPY --from=builder ["/app/aasrepositoryservice", "/app/aasrepositoryservice"]
+COPY --from=builder ["/app/cmd/aasrepositoryservice/config.yaml", "/config/config.yaml"]
+COPY --from=builder ["/app/basyxschema.sql", "/app/basyxschema.sql"]
+COPY --from=builder ["/app/healthprobe", "/bin/healthprobe"]
+COPY --from=builder ["/app/healthprobe", "/bin/wget"]
 
 # Default port (can be overridden by environment)
 ENV SERVER_PORT=5004

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 
@@ -19,7 +20,7 @@ import (
 	gen "github.com/eclipse-basyx/basyx-go-components/pkg/aasenvironmentapi/go"
 )
 
-func runServer(ctx context.Context, configPath string) error {
+func runServer(ctx context.Context, configPath string, databaseSchema string) error {
 	cfg, err := common.LoadConfig(configPath)
 	if err != nil {
 		return err
@@ -28,17 +29,17 @@ func runServer(ctx context.Context, configPath string) error {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.DBName)
 
-	aasDB, err := aasrepo.NewAssetAdministrationShellDatabase(dsn, cfg.Postgres.MaxOpenConnections, cfg.Postgres.MaxIdleConnections, cfg.Postgres.ConnMaxLifetimeMinutes, "", cfg.Server.StrictVerification)
+	aasDB, err := aasrepo.NewAssetAdministrationShellDatabase(dsn, cfg.Postgres.MaxOpenConnections, cfg.Postgres.MaxIdleConnections, cfg.Postgres.ConnMaxLifetimeMinutes, databaseSchema, cfg.Server.StrictVerification)
 	if err != nil {
 		return err
 	}
 
-	smDB, err := smrepo.NewSubmodelDatabase(dsn, cfg.Postgres.MaxOpenConnections, cfg.Postgres.MaxIdleConnections, cfg.Postgres.ConnMaxLifetimeMinutes, "", nil, cfg.Server.StrictVerification)
+	smDB, err := smrepo.NewSubmodelDatabase(dsn, cfg.Postgres.MaxOpenConnections, cfg.Postgres.MaxIdleConnections, cfg.Postgres.ConnMaxLifetimeMinutes, databaseSchema, nil, cfg.Server.StrictVerification)
 	if err != nil {
 		return err
 	}
 
-	cdDB, err := cdrepo.NewConceptDescriptionBackend(dsn, int32(cfg.Postgres.MaxOpenConnections), cfg.Postgres.MaxIdleConnections, cfg.Postgres.ConnMaxLifetimeMinutes, "")
+	cdDB, err := cdrepo.NewConceptDescriptionBackend(dsn, int32(cfg.Postgres.MaxOpenConnections), cfg.Postgres.MaxIdleConnections, cfg.Postgres.ConnMaxLifetimeMinutes, databaseSchema)
 	if err != nil {
 		return err
 	}
@@ -76,10 +77,16 @@ func runServer(ctx context.Context, configPath string) error {
 
 func main() {
 	configPath := ""
+	databaseSchema := ""
 	flag.StringVar(&configPath, "config", "", "Path to config file")
+	flag.StringVar(&databaseSchema, "databaseSchema", "", "Path to SQL schema file")
 	flag.Parse()
 
-	if err := runServer(context.Background(), configPath); err != nil {
+	if databaseSchema == "" {
+		databaseSchema = os.Getenv("DATABASE_SCHEMA")
+	}
+
+	if err := runServer(context.Background(), configPath, databaseSchema); err != nil {
 		log.Fatal(err)
 	}
 }
